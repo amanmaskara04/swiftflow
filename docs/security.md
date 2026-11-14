@@ -93,3 +93,16 @@ Tested by the invariant checker after load and chaos runs: zero double charges, 
 - The gateway's own `/metrics` and `/docs` are reachable on port 8080; the console's nginx forwards only `/v1` and `/.well-known`, and a production edge should do the same.
 - The login throttle is per client ID, so someone who knows a client ID can slow that client's sign-ins.
 - No dependency or image vulnerability scan has been run yet (Trivy is planned with CI).
+
+## Vulnerability scan
+
+Scanned with Trivy 0.76.2 on 2026-11-15: the repository (dependencies, secrets, Dockerfile and Compose configuration) and all six built images.
+
+| Finding | Fix |
+|---------|-----|
+| Console image ran nginx as root (HIGH, DS-0002) | Switched to `nginxinc/nginx-unprivileged`; the container runs as uid 101 |
+| Outdated OS packages in the base images (HIGH: zlib, musl, pcre2, libxml2 and others) | Images apply `apt-get upgrade` / `apk upgrade` at build time; nginx base moved from 1.27 to 1.29 |
+| `react-router` 6.30.6 (2 MEDIUM: open redirect, constructor injection) | Upgraded to 7.18.5; `npm audit` reports 0 vulnerabilities |
+| `pip` 25.0.1 left in the Python runtime images (5 MEDIUM) | pip is uninstalled after the dependencies are installed |
+
+After the fixes: no secrets, no misconfigurations, and no fixable CRITICAL, HIGH or MEDIUM vulnerabilities in the repository or in any image. The CI workflow repeats the scan on every push and fails on a fixable CRITICAL or HIGH finding in the repository, or a fixable CRITICAL in the order image.

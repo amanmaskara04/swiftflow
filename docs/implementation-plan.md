@@ -99,7 +99,7 @@ Swiftflow/
 
 ## Phase 8 — Platform and polish (optional, after the core works)
 
-- [x] `.github/workflows/ci.yml` (SHA-pinned actions, lint, tests, build, Trivy in report-only mode, Compose e2e) — written, not yet run on GitHub
+- [x] `.github/workflows/ci.yml` (SHA-pinned actions, lint, tests, build, Trivy, Compose e2e) — written, not yet run on GitHub
 - [ ] Kustomize base + overlays; install k3d/kind/helm to `D:\Apps` and deploy locally
 - [ ] README results table and screenshots; demo recording
 
