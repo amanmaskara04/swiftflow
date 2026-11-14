@@ -1,0 +1,29 @@
+{
+  "event_id": "7f9c2b0e-0c1a-4c1e-9a55-2a6f3f1f8d04",
+  "event_type": "StockReserved",
+  "schema_version": 1,
+  "occurred_at": "2026-11-14T10:15:04.123Z",
+  "tenant_id": "6f1d2c3b-4a59-4e6f-8a7b-9c0d1e2f3a4b",
+  "aggregate_id": "0b6e5f4a-3c2d-4b1a-9e8f-7d6c5b4a3f2e",
+  "producer": "inventory",
+  "payload": {
+    "order_id": "0b6e5f4a-3c2d-4b1a-9e8f-7d6c5b4a3f2e",
+    "items": [
+      {
+        "sku": "TEE-CLASSIC-M",
+        "qty": 2,
+        "warehouse_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        "warehouse_code": "BLR-1",
+        "unit_price_cents": 1800
+      },
+      {
+        "sku": "CAP-TRAIL",
+        "qty": 1,
+        "warehouse_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        "warehouse_code": "BLR-1",
+        "unit_price_cents": 1200
+      }
+    ],
+    "total_cents": 4800
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "event_id": "7f9c2b0e-0c1a-4c1e-9a55-2a6f3f1f8d01",
+  "event_type": "OrderConfirmed",
+  "schema_version": 1,
+  "occurred_at": "2026-11-14T10:15:01.123Z",
+  "tenant_id": "6f1d2c3b-4a59-4e6f-8a7b-9c0d1e2f3a4b",
+  "aggregate_id": "0b6e5f4a-3c2d-4b1a-9e8f-7d6c5b4a3f2e",
+  "producer": "order",
+  "payload": {
+    "order_id": "0b6e5f4a-3c2d-4b1a-9e8f-7d6c5b4a3f2e",
+    "total_cents": 4800,
+    "payment_id": "pay_3f9a1c2b7d"
+  }
+}

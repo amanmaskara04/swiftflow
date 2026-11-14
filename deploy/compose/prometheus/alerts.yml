@@ -1,0 +1,20 @@
+groups:
+  - name: swiftflow
+    rules:
+      - alert: OutboxStuck
+        expr: swiftflow_outbox_oldest_unpublished_seconds > 30
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: "Outbox of {{ $labels.service }} has rows unpublished for more than 30 s"
+      - alert: EventsDeadLettered
+        expr: increase(swiftflow_events_consumed_total{result="dlq"}[5m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.consumer }} sent events to a DLQ"
+      - alert: CircuitOpen
+        expr: swiftflow_circuit_state == 2
+        for: 30s
+        labels: { severity: warning }
+        annotations:
+          summary: "Circuit {{ $labels.name }} is open"

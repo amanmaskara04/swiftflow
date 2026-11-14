@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwiftFlow Console — design prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F4; --sheet:#FFFFFF; --sunk:#E4E8ED; --ink:#141B24; --ink-2:#5A6573; --rule:#D6DCE3;
+  --signal:#F2C230; --signal-ink:#1A1400; --go:#0E8A6C; --stop:#C63D2B; --route:#2B59D9;
+  --go-wash:#E2F3EE; --stop-wash:#FAE7E3; --route-wash:#E5ECFB; --signal-wash:#FDF4D3;
+  --side:#141B24; --side-ink:#C5CED8; --side-dim:#7C8896; --side-rule:#262F3B;
+  --display:"Archivo",system-ui,sans-serif; --body:"Instrument Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+[data-theme="dark"]{
+  --paper:#0E1319; --sheet:#161C24; --sunk:#10151C; --ink:#E7ECF1; --ink-2:#98A4B2; --rule:#28313C;
+  --go:#2DBB96; --stop:#F0705C; --route:#7F9DFF;
+  --go-wash:#12302A; --stop-wash:#3A1D18; --route-wash:#1A2547; --signal-wash:#3A3010;
+  --side:#0A0E13; --side-rule:#1B222B;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 14px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px;box-shadow:0 0 0 4px var(--ink)}
+.mono{font-family:var(--mono);font-size:.8125rem;font-variant-numeric:tabular-nums}
+.cap{font:700 .6875rem/1 var(--display);font-stretch:112%;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2)}
+.fig{font:800 2.25rem/1 var(--display);font-stretch:118%;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+/* shell */
+.app{display:grid;grid-template-columns:216px 1fr;min-height:100vh}
+.side{background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;padding:20px 0;position:sticky;top:0;height:100vh}
+.brand{padding:0 20px 22px;border-bottom:1px solid var(--side-rule)}
+.brand b{display:block;font:900 1.25rem/1 var(--display);font-stretch:125%;letter-spacing:.02em;color:#fff}
+.brand b i{font-style:normal;color:var(--signal)}
+.brand span{font:500 .6875rem var(--mono);color:var(--side-dim)}
+.nav{padding:14px 0;flex:1}
+.nav button{display:flex;align-items:center;gap:12px;width:100%;padding:9px 20px;border:0;background:none;color:var(--side-ink);font-weight:500;text-align:left;border-left:3px solid transparent}
+.nav button:hover{background:#ffffff0d;color:#fff}
+.nav button[aria-current="page"]{border-left-color:var(--signal);background:#ffffff12;color:#fff}
+.nav svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nav .sep{margin:12px 20px 8px;font:700 .625rem var(--display);font-stretch:112%;letter-spacing:.1em;color:var(--side-dim);text-transform:uppercase}
+.who{padding:14px 20px 0;border-top:1px solid var(--side-rule);font-size:.8125rem}
+.who small{display:block;color:var(--side-dim);font-family:var(--mono);font-size:.6875rem}
+
+.top{display:flex;align-items:center;gap:16px;padding:12px 32px;border-bottom:1px solid var(--rule);background:var(--sheet);position:sticky;top:0;z-index:5}
+.tenant{font-weight:600}
+.health{display:flex;gap:6px;margin-left:auto}
+.health span{display:flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--rule);border-radius:4px;font:500 .6875rem var(--mono)}
+.health i{width:7px;height:7px;border-radius:50%;background:var(--go)}
+.health .down{border-color:var(--stop);color:var(--stop)} .health .down i{background:var(--stop)}
+.iconbtn{border:1px solid var(--rule);background:var(--sheet);border-radius:6px;padding:5px 10px;font:500 .75rem var(--mono)}
+
+main{padding:28px 32px 56px;max-width:1440px}
+.screen{display:none} .screen.on{display:block}
+.head{display:flex;align-items:flex-end;gap:16px;margin-bottom:22px}
+.head h1{margin:0;font:800 1.625rem/1.1 var(--display);font-stretch:120%;letter-spacing:.01em;text-transform:uppercase}
+.head p{margin:6px 0 0;color:var(--ink-2)}
+.head .act{margin-left:auto;display:flex;gap:8px}
+.btn{border:1px solid var(--ink);background:var(--sheet);border-radius:6px;padding:8px 14px;font-weight:600}
+.btn.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal-ink)}
+.btn.danger{border-color:var(--stop);color:var(--stop)}
+.card{background:var(--sheet);border:1px solid var(--rule);border-radius:10px}
+.card>header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--rule)}
+.card>header .mono{margin-left:auto;color:var(--ink-2)}
+.grid{display:grid;gap:16px}
+
+/* status badge: label-like, glyph + word */
+.badge{display:inline-flex;align-items:center;gap:6px;padding:2px 7px 2px 6px;border-radius:4px;font:700 .625rem/1.5 var(--display);font-stretch:112%;letter-spacing:.08em}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.PENDING{background:var(--signal-wash);color:#7A5B00}[data-theme="dark"] .PENDING{color:var(--signal)}
+.RESERVED{background:var(--route-wash);color:var(--route)}
+.CONFIRMED{background:var(--go-wash);color:var(--go)}
+.SHIPPED{background:var(--ink);color:var(--sheet)} .SHIPPED::before{border-radius:1px}
+.REJECTED{background:var(--stop-wash);color:var(--stop)} .REJECTED::before{border-radius:0;clip-path:polygon(20% 0,50% 30%,80% 0,100% 20%,70% 50%,100% 80%,80% 100%,50% 70%,20% 100%,0 80%,30% 50%,0 20%)}
+.CANCELLED{background:none;box-shadow:inset 0 0 0 1px var(--stop);color:var(--stop)} .CANCELLED::before{background:none;box-shadow:inset 0 0 0 1.5px currentColor}
+
+/* LINE BOARD — the signature */
+.board{padding:22px 22px 18px;display:grid;grid-template-columns:1fr 250px;gap:26px}
+.line{position:relative;display:grid;grid-template-columns:repeat(5,1fr)}
+.line::before{content:"";position:absolute;left:10%;right:10%;top:9px;height:6px;background:var(--ink);border-radius:3px}
+.stn{position:relative;text-align:center;padding-top:0}
+.stn .dot{width:24px;height:24px;border-radius:50%;background:var(--sheet);border:6px solid var(--ink);margin:0 auto 12px;position:relative;z-index:1}
+.stn.live .dot{border-color:var(--ink);background:var(--signal)}
+.stn .fig{margin:8px 0 2px}
+.stn .evt{color:var(--ink-2);font:400 .6875rem var(--mono)}
+.tokens{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;align-items:flex-start;align-content:flex-start;min-height:44px;margin-top:10px;padding:0 6px}
+.tok{font:500 .6875rem var(--mono);padding:1px 6px;border-radius:3px;background:var(--signal);color:var(--signal-ink);animation:arrive .4s cubic-bezier(.2,.8,.2,1)}
+@keyframes arrive{from{transform:translateX(-46px);opacity:0}}
+.branch{grid-column:1/-1;margin:6px 10% 0 30%;border-left:6px solid var(--stop);border-bottom:6px solid var(--stop);border-bottom-left-radius:14px;height:34px;position:relative}
+.terms{grid-column:1/-1;display:flex;gap:26px;margin-left:calc(30% + 60px);margin-top:-15px;position:relative}
+.term{display:flex;align-items:center;gap:10px;background:var(--sheet);padding-right:10px}
+.term .sq{width:18px;height:18px;background:var(--stop);border-radius:3px}
+.term b{font:800 1.125rem var(--display);font-stretch:118%;font-variant-numeric:tabular-nums}
+.odo{border-left:1px solid var(--rule);padding-left:26px;display:flex;flex-direction:column;justify-content:center}
+.odo .wheels{display:flex;gap:4px;margin:10px 0 10px}
+.odo .wheels span{width:44px;height:64px;border-radius:6px;background:var(--ink);color:var(--sheet);display:grid;place-items:center;font:800 2.5rem/1 var(--display);font-stretch:110%;box-shadow:inset 0 -22px 18px -18px #0007,inset 0 22px 18px -18px #fff2}
+.odo p{margin:0;color:var(--ink-2);font-size:.8125rem}
+.odo .ok{color:var(--go);font-weight:600}
+
+.kpis{grid-template-columns:repeat(4,1fr)}
+.kpi{padding:16px 18px} .kpi .fig{font-size:1.625rem;margin-top:10px} .kpi small{color:var(--ink-2)}
+.two{grid-template-columns:1.55fr 1fr;align-items:start}
+.bars{display:flex;align-items:flex-end;gap:3px;height:150px;padding:18px}
+.bars div{flex:1;display:flex;flex-direction:column-reverse;gap:1px}
+.bars i{display:block;border-radius:1px}
+.tape{max-height:316px;overflow:auto}
+.tape li{list-style:none;display:grid;grid-template-columns:86px 1fr;gap:10px;padding:9px 18px;border-bottom:1px solid var(--rule);border-left:3px solid transparent}
+.tape ul{margin:0;padding:0}
+.tape li.new{border-left-color:var(--signal);animation:slide .2s ease-out}
+@keyframes slide{from{transform:translateY(-8px);opacity:0}}
+.tape b{font:700 .6875rem var(--display);font-stretch:112%;letter-spacing:.07em;text-transform:uppercase}
+.tape time,.tape small{color:var(--ink-2)}
+
+/* tables */
+table{width:100%;border-collapse:collapse}
+th{font:700 .6875rem var(--display);font-stretch:112%;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);text-align:left;padding:11px 18px;border-bottom:1px solid var(--rule)}
+td{padding:11px 18px;border-bottom:1px solid var(--rule);vertical-align:middle}
+tbody tr:hover{background:var(--paper);cursor:pointer}
+tr:last-child td{border-bottom:0}
+.filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.filters input{flex:0 1 300px;padding:8px 12px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);color:var(--ink);font:inherit}
+.chip{padding:6px 11px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);font-weight:500;font-size:.8125rem}
+.chip.on{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+.rail svg{display:block}
+
+/* drawer */
+.drawer{position:fixed;right:0;top:0;bottom:0;width:540px;max-width:100vw;background:var(--sheet);border-left:1px solid var(--rule);box-shadow:-24px 0 60px #0d142033;transform:translateX(102%);transition:transform .28s cubic-bezier(.2,.8,.2,1);z-index:20;overflow:auto}
+.drawer.on{transform:none}
+.drawer>header{padding:20px 24px;border-bottom:1px solid var(--rule);display:flex;gap:12px;align-items:center}
+.drawer h2{margin:0;font:800 1.125rem var(--display);font-stretch:118%;text-transform:uppercase}
+.drawer section{padding:20px 24px;border-bottom:1px solid var(--rule)}
+.drawer .x{margin-left:auto;border:0;background:none;font-size:1.25rem}
+.evrow{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:7px 0;border-bottom:1px dashed var(--rule)}
+pre{margin:6px 0 0;padding:10px 12px;background:var(--sunk);border-radius:6px;font:400 .75rem/1.55 var(--mono);overflow:auto}
+
+/* stock bin cards */
+.bin{min-width:190px}
+.bin .bar{display:flex;height:10px;border-radius:2px;overflow:hidden;background:var(--sunk);margin-bottom:6px}
+.bin .bar i{background:var(--ink)} .bin .bar u{background:var(--route)}
+.bin small{color:var(--ink-2)}
+.low .bar i{background:var(--stop)}
+
+/* system map */
+.map{padding:20px}
+.map svg{width:100%;height:auto}
+.map text{font-family:var(--mono);font-size:11px;fill:var(--ink)}
+.map .t{font-family:var(--display);font-weight:800;font-size:12px;letter-spacing:.06em}
+.map .n{fill:var(--sheet);stroke:var(--ink);stroke-width:1.5}
+.map .w{fill:var(--sunk);stroke:var(--rule)}
+.map .l{stroke:var(--ink-2);stroke-width:1.5;fill:none}
+.map .bus{stroke:var(--ink);stroke-width:8;stroke-linecap:round}
+.map .pulse{fill:var(--signal);stroke:var(--ink);stroke-width:1.5}
+
+/* chaos */
+.hazard{height:10px;border-radius:10px 10px 0 0;background:repeating-linear-gradient(135deg,var(--signal) 0 12px,#141B24 12px 24px)}
+.ctrl{padding:18px;display:grid;gap:18px}
+.ctrl label{display:grid;grid-template-columns:200px 1fr 70px;align-items:center;gap:14px;font-weight:500}
+input[type=range]{accent-color:var(--ink);width:100%}
+.result{grid-template-columns:repeat(4,1fr);padding:18px;gap:0}
+.result>div{padding:4px 18px;border-left:1px solid var(--rule)} .result>div:first-child{border:0;padding-left:0}
+.pass{display:inline-block;border:2px solid var(--go);color:var(--go);font:800 .8125rem var(--display);font-stretch:118%;letter-spacing:.12em;padding:4px 10px;border-radius:4px;transform:rotate(-3deg)}
+.note{margin:0;padding:12px 18px;border-top:1px solid var(--rule);color:var(--ink-2)}
+
+@media (max-width:900px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;inset:auto 0 0 0;height:auto;flex-direction:row;padding:0;z-index:10}
+  .brand,.who,.nav .sep{display:none}
+  .nav{display:flex;padding:0;width:100%} .nav button{flex-direction:column;gap:3px;font-size:.625rem;padding:8px 2px;border-left:0;border-top:3px solid transparent;justify-content:center;align-items:center}
+  .nav button[aria-current="page"]{border-top-color:var(--signal)}
+  main{padding:20px 16px 96px} .top{padding:10px 16px} .health span b{display:none}
+  .board,.two,.kpis,.result{grid-template-columns:1fr} .odo{border:0;padding:0;border-top:1px solid var(--rule);padding-top:18px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .card{overflow-x:auto} .ctrl label{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><b>SWIFT<i>FLOW</i></b><span>console · local</span></div>
+    <nav class="nav" aria-label="Main">
+      <button data-go="overview" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Overview</button>
+      <button data-go="orders"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Orders</button>
+      <button data-go="stock"><svg viewBox="0 0 24 24"><path d="M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8"/></svg>Stock</button>
+      <button data-go="orders"><svg viewBox="0 0 24 24"><path d="M10 14l-6 6M14 10l6-6M8 4h12v12"/></svg>Webhooks</button>
+      <div class="sep">Under the hood</div>
+      <button data-go="map"><svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7 6h10M6 8l5 8M18 8l-5 8"/></svg>System map</button>
+      <button data-go="chaos"><svg viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18v.5"/></svg>Chaos lab</button>
+    </nav>
+    <div class="who">acme-admin<small>admin · token 14:02 left</small></div>
+  </aside>
+
+  <div>
+    <div class="top">
+      <span class="tenant">Acme Outfitters</span>
+      <div class="health" aria-label="Service health">
+        <span><i></i><b>gateway</b> 8080</span><span><i></i><b>order</b> 8001</span><span><i></i><b>inventory</b> 8002</span>
+        <span><i></i><b>notification</b> 8003</span><span><i></i><b>partner-sim</b> 8004</span><span><i></i><b>kafka</b> 9092</span>
+      </div>
+      <button class="iconbtn" id="theme">Dark</button>
+    </div>
+
+    <main>
+      <!-- OVERVIEW -->
+      <section class="screen on" id="overview">
+        <div class="head"><div><h1>Overview</h1><p>Every order, at the station it has reached, right now.</p></div></div>
+        <div class="card" style="margin-bottom:16px">
+          <header><span class="cap">The line</span><span class="mono">live · orders.events + inventory.events</span></header>
+          <div class="board">
+            <div>
+              <div class="line" id="line"></div>
+              <div><div class="branch"></div>
+                <div class="terms">
+                  <div class="term"><span class="sq"></span><div><div class="cap">Rejected · no stock</div><b id="rej">38</b></div></div>
+                  <div class="term"><span class="sq" style="background:none;box-shadow:inset 0 0 0 3px var(--stop)"></span><div><div class="cap">Cancelled · stock released</div><b id="can">11</b></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="odo">
+              <span class="cap">Oversold units</span>
+              <div class="wheels"><span>0</span><span>0</span><span>0</span><span>0</span></div>
+              <p><span class="ok">Stock is true.</span> Reserved never exceeded on hand across 1,253 orders.</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid kpis" style="margin-bottom:16px">
+          <div class="card kpi"><span class="cap">Placed to confirmed, p95</span><div class="fig">0.61<small style="font-size:1rem"> s</small></div><small>p50 0.38 s</small></div>
+          <div class="card kpi"><span class="cap">Orders, last 60 min</span><div class="fig">1,253</div><small>21 per minute</small></div>
+          <div class="card kpi"><span class="cap">Webhooks delivered</span><div class="fig">99.2<small style="font-size:1rem"> %</small></div><small>3 retrying</small></div>
+          <div class="card kpi"><span class="cap">Payment circuit</span><div class="fig" style="color:var(--go)">Closed</div><small>0 failures in window</small></div>
+        </div>
+        <div class="grid two">
+          <div class="card"><header><span class="cap">Orders per minute</span><span class="mono">by final state</span></header><div class="bars" id="bars"></div></div>
+          <div class="card"><header><span class="cap">Event tape</span><span class="mono">SSE</span></header><div class="tape"><ul id="tape"></ul></div></div>
+        </div>
+      </section>
+
+      <!-- ORDERS -->
+      <section class="screen" id="orders">
+        <div class="head"><div><h1>Orders</h1><p>Open an order to see every step it took.</p></div><div class="act"><button class="btn primary">Place order</button></div></div>
+        <div class="filters"><input placeholder="Search order ID or customer ref" aria-label="Search orders">
+          <button class="chip on">All</button><button class="chip">Pending</button><button class="chip">Reserved</button><button class="chip">Confirmed</button><button class="chip">Shipped</button><button class="chip">Rejected</button><button class="chip">Cancelled</button></div>
+        <div class="card"><table><thead><tr><th>Order</th><th>Customer ref</th><th>Journey</th><th>Status</th><th>Items</th><th>Total</th><th>Age</th></tr></thead><tbody id="rows"></tbody></table></div>
+      </section>
+
+      <!-- STOCK -->
+      <section class="screen" id="stock">
+        <div class="head"><div><h1>Stock</h1><p>Available is on hand minus reserved. Select a cell to correct a count.</p></div><div class="act"><button class="btn">Add warehouse</button><button class="btn primary">Add product</button></div></div>
+        <div class="card"><table><thead><tr><th>SKU</th><th>BLR-1 · Bengaluru North</th><th>DEL-2 · Delhi Central</th><th>Available</th></tr></thead><tbody id="stk"></tbody></table></div>
+      </section>
+
+      <!-- MAP -->
+      <section class="screen" id="map">
+        <div class="head"><div><h1>System map</h1><p>Six services on six ports. The three in the middle never call each other.</p></div></div>
+        <div class="card map">
+          <svg viewBox="0 0 980 470" role="img" aria-label="Architecture: console to gateway to order, inventory and notification services, joined by Kafka">
+            <path class="l" d="M490 52v30M490 126v24M190 150h600M190 150v26M490 150v26M790 150v26M190 262v54M490 262v54M790 262v54M190 356v48M490 356v48M320 414h340"/>
+            <path class="l" stroke-dasharray="5 5" d="M290 200h-0M90 219h-30v-150h340M890 219h40v-150h-130"/>
+            <g><rect class="n" x="410" y="14" width="160" height="38" rx="6"/><text class="t" x="426" y="38">CONSOLE</text><text x="520" y="38">:3000</text></g>
+            <g><rect class="n" x="410" y="82" width="160" height="44" rx="6"/><text class="t" x="426" y="108">GATEWAY</text><text x="520" y="108">:8080</text><circle cx="560" cy="92" r="4" fill="var(--go)"/></g>
+            <g><rect class="n" x="90" y="176" width="200" height="86" rx="6"/><text class="t" x="106" y="200">ORDER</text><text x="240" y="200">:8001</text><circle cx="280" cy="186" r="4" fill="var(--go)"/><rect class="w" x="100" y="212" width="180" height="40" rx="4"/><text x="110" y="229">worker :9101</text><text x="110" y="244" fill="var(--ink-2)">relay · saga · payments</text></g>
+            <g><rect class="n" x="390" y="176" width="200" height="86" rx="6"/><text class="t" x="406" y="200">INVENTORY</text><text x="540" y="200">:8002</text><circle cx="580" cy="186" r="4" fill="var(--go)"/><rect class="w" x="400" y="212" width="180" height="40" rx="4"/><text x="410" y="229">worker :9102</text><text x="410" y="244">relay · reservations</text></g>
+            <g><rect class="n" x="690" y="176" width="200" height="86" rx="6"/><text class="t" x="706" y="200">NOTIFICATION</text><text x="840" y="200">:8003</text><circle cx="880" cy="186" r="4" fill="var(--go)"/><rect class="w" x="700" y="212" width="180" height="40" rx="4"/><text x="710" y="229">worker :9103</text><text x="710" y="244">feed · webhooks</text></g>
+            <g><rect class="n" x="20" y="52" width="130" height="38" rx="6" stroke-dasharray="4 3"/><text class="t" x="32" y="76">PARTNER-SIM</text></g><text x="24" y="106">:8004 payments + webhook receiver</text>
+            <line class="bus" x1="60" y1="336" x2="920" y2="336"/><text class="t" x="60" y="322">KAFKA :9092</text><text x="700" y="322">orders.events · inventory.events</text>
+            <circle class="pulse" r="7" cy="336"><animate attributeName="cx" values="190;490;490;190;790" keyTimes="0;.3;.5;.8;1" dur="4s" repeatCount="indefinite"/></circle>
+            <g><rect class="n" x="230" y="404" width="180" height="40" rx="20"/><text class="t" x="254" y="429">POSTGRES</text><text x="350" y="429">:5432</text></g>
+            <g><rect class="n" x="570" y="404" width="180" height="40" rx="20"/><text class="t" x="600" y="429">REDIS</text><text x="690" y="429">:6379</text></g>
+          </svg>
+        </div>
+      </section>
+
+      <!-- CHAOS -->
+      <section class="screen" id="chaos">
+        <div class="head"><div><h1>Chaos lab</h1><p>Break the payment provider on purpose, then watch the system recover.</p></div></div>
+        <div class="grid two">
+          <div class="card"><div class="hazard"></div><header><span class="cap">Payment provider faults</span></header>
+            <div class="ctrl">
+              <label>Decline rate<input type="range" value="0"><span class="mono">0 %</span></label>
+              <label>Added latency<input type="range" value="4"><span class="mono">200 ms</span></label>
+              <label>Provider outage<span><button class="chip">Off</button></span><span></span></label>
+            </div><p class="note">Faults here are real and affect every tenant in this environment.</p></div>
+          <div class="card"><header><span class="cap">Oversell test</span><span class="mono">TEE-CLASSIC-M</span></header>
+            <div class="ctrl"><label>Units in stock<input type="range" value="20"><span class="mono">100</span></label><label>Orders fired at once<input type="range" value="50"><span class="mono">500</span></label>
+            <div><button class="btn primary">Run oversell test</button></div></div></div>
+        </div>
+        <div class="card" style="margin-top:16px"><header><span class="cap">Last run</span><span class="pass">PASSED</span><span class="mono">placed in 1.84 s · settled in 6.20 s</span></header>
+          <div class="grid result">
+            <div><span class="cap">Confirmed</span><div class="fig" style="color:var(--go)">100</div></div>
+            <div><span class="cap">Rejected</span><div class="fig">400</div></div>
+            <div><span class="cap">In flight</span><div class="fig">0</div></div>
+            <div><span class="cap">Oversold units</span><div class="fig" style="color:var(--go)">0</div></div>
+          </div><p class="note mono">stock after: on hand 100 · reserved 100 · available 0 · double charges 0</p></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<aside class="drawer" id="drawer" aria-label="Order detail">
+  <header><h2>Order <span class="mono" style="font-size:1rem;text-transform:none">0b6e3f1a</span></h2><span class="badge CANCELLED">CANCELLED</span><button class="x" aria-label="Close">×</button></header>
+  <section><div class="cap" style="margin-bottom:14px">Journey</div><div class="rail" id="fullrail"></div></section>
+  <section><div class="cap" style="margin-bottom:8px">Items</div>
+    <table><tbody><tr><td class="mono">TEE-CLASSIC-M</td><td>× 2</td><td class="mono">BLR-1</td><td class="mono" style="text-align:right">$36.00</td></tr></tbody></table></section>
+  <section><div class="cap" style="margin-bottom:8px">Events</div>
+    <div class="evrow"><time class="mono">10:15:00.12</time><div><b>OrderPlaced</b></div></div>
+    <div class="evrow"><time class="mono">10:15:00.31</time><div><b>StockReserved</b><pre>{ "warehouse_code": "BLR-1", "qty": 2, "total_cents": 3600 }</pre></div></div>
+    <div class="evrow"><time class="mono">10:15:00.58</time><div><b>OrderCancelled</b> <span class="mono">payment_declined</span></div></div>
+    <div class="evrow"><time class="mono">10:15:00.74</time><div><b>StockReleased</b></div></div></section>
+  <section style="display:flex;gap:8px"><button class="btn danger" disabled style="opacity:.45">Cancel order</button><button class="btn" disabled style="opacity:.45">Mark shipped</button></section>
+</aside>
+
+<script>
+const $=s=>document.querySelector(s), STN=["Placed","Reserved","Paid","Confirmed","Shipped"], EVT=["OrderPlaced","StockReserved","payment approved","OrderConfirmed","OrderShipped"];
+document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id===b.dataset.go));document.querySelectorAll(".nav button").forEach(n=>n.removeAttribute("aria-current"));b.setAttribute("aria-current","page");$("#drawer").classList.remove("on")});
+$("#theme").onclick=e=>{const d=document.documentElement,t=d.dataset.theme==="dark"?"light":"dark";d.dataset.theme=t;e.target.textContent=t==="dark"?"Light":"Dark"};
+
+// saga rail (SVG): stations, current index, optional compensation branch from a station
+function rail(cur,fail,full){
+  const w=full?480:150,h=full?(fail!=null?120:58):18,n=5,pad=full?34:7,step=(w-2*pad)/(n-1),y=full?14:9,r=full?7:4;
+  const ink="var(--ink)",dim="var(--rule)",stop="var(--stop)";
+  let s=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Journey">`;
+  const end=fail!=null?fail:cur;
+  s+=`<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="${dim}" stroke-width="${full?4:3}" stroke-linecap="round"/>`;
+  s+=`<line x1="${pad}" y1="${y}" x2="${pad+step*end}" y2="${y}" stroke="${ink}" stroke-width="${full?4:3}" stroke-linecap="round"/>`;
+  if(fail!=null){const x=pad+step*fail;
+    if(full){s+=`<path d="M${x} ${y}v48a10 10 0 0 0 10 10h${step*1.6}" fill="none" stroke="${stop}" stroke-width="4" stroke-linecap="round"/>`;
+      s+=`<circle cx="${x+step*.8}" cy="${y+58}" r="${r}" fill="${stop}"/><rect x="${x+step*1.6+4}" y="${y+51}" width="14" height="14" rx="2" fill="${stop}"/>`;
+      s+=`<text x="${x+step*.8}" y="${y+82}" text-anchor="middle" font-family="var(--display)" font-weight="700" font-size="10" fill="${stop}" letter-spacing=".06em">RELEASED</text><text x="${x+step*1.6+11}" y="${y+82}" text-anchor="middle" font-family="var(--display)" font-weight="700" font-size="10" fill="${stop}" letter-spacing=".06em">CANCELLED</text>`;
+    } else s+=`<path d="M${x} ${y}l0 0" /><rect x="${x+step-4}" y="${y-4}" width="8" height="8" rx="1" fill="${stop}"/><line x1="${x}" y1="${y}" x2="${x+step-4}" y2="${y}" stroke="${stop}" stroke-width="3"/>`}
+  for(let i=0;i<n;i++){const x=pad+step*i,done=i<=end,here=i===end&&fail==null;
+    s+=`<circle cx="${x}" cy="${y}" r="${here?r+2:r}" fill="${here?"var(--signal)":done?ink:"var(--sheet)"}" stroke="${done?ink:dim}" stroke-width="${full?3:2}"/>`;
+    if(full){s+=`<text x="${x}" y="${y+26}" text-anchor="middle" font-family="var(--display)" font-weight="700" font-size="10" letter-spacing=".06em" fill="${done?ink:"var(--ink-2)"}">${STN[i].toUpperCase()}</text>`;
+      if(done)s+=`<text x="${x}" y="${y+40}" text-anchor="middle" font-family="var(--mono)" font-size="9.5" fill="var(--ink-2)">10:15:00.${12+i*19}</text>`}}
+  return s+"</svg>"}
+$("#fullrail").innerHTML=rail(2,1,true).replace("10:15:00.50","declined");
+
+const ORD=[["0b6e3f1a","shopify-#10412",3,null,"CONFIRMED",3,"$54.00","2m"],["91aa07c2","amazon-88-12",0,0,"REJECTED",1,"—","5m"],["c41d77e0","shopify-#10413",1,null,"RESERVED",2,"$36.00","3s"],["7fe2a9b4","store-5521",4,null,"SHIPPED",1,"$18.00","41m"],["2a90cc13","shopify-#10409",1,1,"CANCELLED",2,"$36.00","1h"],["e8b3105f","amazon-88-13",0,null,"PENDING",4,"—","1s"]];
+$("#rows").innerHTML=ORD.map(o=>`<tr tabindex="0"><td class="mono">${o[0]}</td><td>${o[1]}</td><td class="rail">${rail(o[2],o[3],false)}</td><td><span class="badge ${o[4]}">${o[4]}</span></td><td class="mono">${o[5]}</td><td class="mono">${o[6]}</td><td class="mono">${o[7]}</td></tr>`).join("");
+$("#rows").onclick=()=>$("#drawer").classList.add("on"); $(".drawer .x").onclick=()=>$("#drawer").classList.remove("on");
+
+const SK=[["TEE-CLASSIC-M","Classic tee, medium",[88,12,100],[52,8,60]],["CAP-TRAIL","Trail cap",[40,0,40],[3,21,24]],["BOTTLE-750","Steel bottle 750 ml",[210,30,240],[0,0,0]],["SOCK-MERINO-L","Merino socks, large",[6,4,10],[75,5,80]]];
+const bin=([a,r,h])=>h?`<div class="bin ${a/h<.2?"low":""}"><div class="bar"><i style="width:${a/h*100}%"></i><u style="width:${r/h*100}%"></u></div><span class="mono">${a} / ${h}</span> <small>· ${r} reserved</small></div>`:`<small>Not stocked here</small>`;
+$("#stk").innerHTML=SK.map(s=>`<tr><td><span class="mono">${s[0]}</span><br><small style="color:var(--ink-2)">${s[1]}</small></td><td>${bin(s[2])}</td><td>${bin(s[3])}</td><td class="fig" style="font-size:1.25rem">${s[2][0]+s[3][0]}</td></tr>`).join("");
+
+$("#bars").innerHTML=Array.from({length:40},(_,i)=>{const c=8+Math.round(14*Math.abs(Math.sin(i/5))+i%4),r=i%7?1:4;return`<div><i style="height:${c*5}px;background:var(--go)"></i><i style="height:${r*5}px;background:var(--stop)"></i></div>`}).join("");
+
+// live line board
+const counts=[2,3,1,1204,871]; let live=[["e8b3",0],["c41d",1],["5d02",1],["a7f1",2]];
+function draw(){ $("#line").innerHTML=STN.map((n,i)=>`<div class="stn ${live.some(l=>l[1]===i)?"live":""}"><div class="dot"></div><div class="cap">${n}</div><div class="fig">${(i<3?live.filter(l=>l[1]===i).length:counts[i]).toLocaleString()}</div><div class="evt">${EVT[i]}</div><div class="tokens">${live.filter(l=>l[1]===i).map(l=>`<span class="tok">${l[0]}</span>`).join("")}</div></div>`).join("")}
+function tape(t,id,x){const li=document.createElement("li");li.className="new";li.innerHTML=`<time class="mono">${new Date().toTimeString().slice(0,8)}</time><div><b>${t}</b><br><small class="mono">#${id}${x?" · "+x:""}</small></div>`;$("#tape").prepend(li);setTimeout(()=>li.classList.remove("new"),2000);while($("#tape").children.length>30)$("#tape").lastChild.remove()}
+function tick(){const l=live[Math.floor(Math.random()*live.length)];l[1]++;
+  if(l[1]===1)tape("StockReserved",l[0],"BLR-1");if(l[1]===2)tape("Payment approved",l[0]);
+  if(l[1]>=3){counts[3]++;tape("OrderConfirmed",l[0],"$36.00");live=live.filter(x=>x!==l);const id=Math.random().toString(16).slice(2,6);live.push([id,0]);tape("OrderPlaced",id)}
+  draw()}
+{const h=location.hash.slice(1).split(",");if(h.includes("dark"))$("#theme").click();const b=document.querySelector(`[data-go="${h[0]}"]`);if(b)b.click();if(h.includes("drawer"))$("#drawer").classList.add("on")}
+draw();["e8b3","c41d","5d02"].forEach(i=>tape("OrderPlaced",i));setInterval(tick,1300);
+</script>
+</body>
+</html>

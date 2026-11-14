@@ -1,0 +1,32 @@
+# Repo-level tool configuration only. Each service and library has its own
+# requirements / pyproject; this file is not a package.
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib -p no:cacheprovider"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["libs"]  # each service is run from its own directory (they all name their package "app")
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+extend-exclude = ["web", ".venv", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF"]
+ignore = [
+  "S101",   # assert is fine in tests
+  "S311",   # random is used for jitter and the simulator, never for secrets
+  "S104",   # services bind 0.0.0.0 inside containers on purpose
+  "B008",   # FastAPI Depends() in defaults
+  "RUF012",
+  "S608",   # false positives on parameterised SQL built from fixed fragments
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S105", "S106", "S107", "S108"]
+"libs/common/swiftflow_common/ratelimit.py" = ["S105"]  # a Lua script, not a password
+"scripts/**" = ["S105", "S106", "S603", "ASYNC", "UP031", "E501"]
+"tests/**" = ["S105", "S106", "S107", "S108", "E501", "ASYNC"]
+"loadtest/**" = ["E501"]
+"chaos/**" = ["E501"]

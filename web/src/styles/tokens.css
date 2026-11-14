@@ -1,0 +1,36 @@
+/* Design tokens — values copied from docs/design/prototype.html (:root and [data-theme="dark"]). */
+:root {
+  --paper: #EEF1F4; --sheet: #FFFFFF; --sunk: #E4E8ED; --ink: #141B24; --ink-2: #5A6573; --rule: #D6DCE3;
+  --signal: #F2C230; --signal-ink: #1A1400; --go: #0E8A6C; --stop: #C63D2B; --route: #2B59D9;
+  --go-wash: #E2F3EE; --stop-wash: #FAE7E3; --route-wash: #E5ECFB; --signal-wash: #FDF4D3;
+  --pending-ink: #7A5B00;
+  --side: #141B24; --side-ink: #C5CED8; --side-dim: #7C8896; --side-rule: #262F3B;
+  --shadow-drawer: -24px 0 60px #0d142033;
+  --display: "Archivo Variable", "Archivo", system-ui, sans-serif;
+  --body: "Instrument Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  color-scheme: light;
+}
+
+/* Dark: explicit choice, or the system preference when no explicit light choice was made. */
+[data-theme="dark"] {
+  --paper: #0E1319; --sheet: #161C24; --sunk: #10151C; --ink: #E7ECF1; --ink-2: #98A4B2; --rule: #28313C;
+  --go: #2DBB96; --stop: #F0705C; --route: #7F9DFF;
+  --go-wash: #12302A; --stop-wash: #3A1D18; --route-wash: #1A2547; --signal-wash: #3A3010;
+  --pending-ink: #F2C230;
+  --side: #0A0E13; --side-rule: #1B222B;
+  --shadow-drawer: -24px 0 60px #00000080;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0E1319; --sheet: #161C24; --sunk: #10151C; --ink: #E7ECF1; --ink-2: #98A4B2; --rule: #28313C;
+    --go: #2DBB96; --stop: #F0705C; --route: #7F9DFF;
+    --go-wash: #12302A; --stop-wash: #3A1D18; --route-wash: #1A2547; --signal-wash: #3A3010;
+    --pending-ink: #F2C230;
+    --side: #0A0E13; --side-rule: #1B222B;
+    --shadow-drawer: -24px 0 60px #00000080;
+    color-scheme: dark;
+  }
+}
