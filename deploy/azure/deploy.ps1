@@ -62,10 +62,18 @@ switch ($Command) {
         $spId = & $az ad sp list --filter "appId eq '$appId'" --query "[0].id" -o tsv
         if (-not $spId) { $spId = Invoke-Az ad sp create --id $appId --query id -o tsv }
         $cred = Join-Path $env:TEMP "swiftflow-federated.json"
-        @{ name = "github-demo"; issuer = "https://token.actions.githubusercontent.com"; subject = "repo:${Repo}:environment:demo"; audiences = @("api://AzureADTokenExchange") } |
+        # GitHub's token names the owner and repository with their numeric ids as well:
+        # repo:<owner>@<owner id>/<repo>@<repo id>:environment:demo
+        $ownerId = & gh api "repos/$Repo" --jq .owner.id
+        $repoId = & gh api "repos/$Repo" --jq .id
+        if (-not $ownerId -or -not $repoId) { throw "could not read the repository ids with gh" }
+        $owner, $repoName = $Repo -split "/"
+        $subject = "repo:$owner@$ownerId/$repoName@${repoId}:environment:demo"
+        @{ name = "github-demo"; issuer = "https://token.actions.githubusercontent.com"; subject = $subject; audiences = @("api://AzureADTokenExchange") } |
             ConvertTo-Json | Set-Content $cred -Encoding ascii
         $have = & $az ad app federated-credential list --id $appId --query "[?name=='github-demo'] | length(@)" -o tsv
-        if ($have -ne "1") { Invoke-Az ad app federated-credential create --id $appId --parameters "@$cred" -o none }
+        if ($have -eq "1") { Invoke-Az ad app federated-credential update --id $appId --federated-credential-id github-demo --parameters "@$cred" -o none }
+        else { Invoke-Az ad app federated-credential create --id $appId --parameters "@$cred" -o none }
         # Allowed to manage this one VM only (run-command and reading its state).
         $vmId = Invoke-Az vm show -g $ResourceGroup -n $vm --query id -o tsv
         Invoke-Az role assignment create --assignee-object-id $spId --assignee-principal-type ServicePrincipal --role "Virtual Machine Contributor" --scope $vmId -o none
