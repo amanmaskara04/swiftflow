@@ -13,8 +13,8 @@ Needs: az login. SSH is not opened; management goes through `az vm run-command`.
 param(
     [Parameter(Position = 0)][string]$Command = "help",
     [string]$ResourceGroup = "swiftflow-rg",
-    [string]$Location = "centralindia",
-    [string]$Size = "Standard_B2s",
+    [string]$Location = "eastasia",
+    [string]$Size = "Standard_B2als_v2",
     [string]$DnsLabel = "swiftflow-amanmaskara04"
 )
 $ErrorActionPreference = "Stop"
@@ -35,7 +35,7 @@ switch ($Command) {
         Invoke-Az vm create -g $ResourceGroup -n $vm --image Ubuntu2404 --size $Size `
             --admin-username azureuser --generate-ssh-keys --public-ip-sku Standard --public-ip-address-dns-name $DnsLabel `
             --os-disk-size-gb 30 --storage-sku StandardSSD_LRS --nsg-rule NONE --custom-data $init -o none
-        Invoke-Az vm open-port -g $ResourceGroup -n $vm --port 80,443 --priority 1000 -o none
+        Invoke-Az vm open-port -g $ResourceGroup -n $vm --port "80,443" --priority 1000 -o none
         Write-Host "VM created. First boot takes about 10 minutes: https://$fqdn"
     }
     "update" { Invoke-OnVm "cd /opt/swiftflow && git pull --ff-only && bash deploy/azure/bootstrap.sh $fqdn 2>&1 | tail -n 15" }

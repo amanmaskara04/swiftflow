@@ -107,6 +107,20 @@ start http://localhost:3000 # sign in with a demo client shown on the login scre
 .\swiftflow.ps1 chaos       # kill workers and the broker mid-run, then check invariants
 ```
 
+## Deployment
+
+**Live demo: https://swiftflow-amanmaskara04.eastasia.cloudapp.azure.com** (the VM is stopped when not in use to save credit, so it may be offline).
+
+The demo runs on one Azure VM (Ubuntu 24.04, 2 vCPU, 4 GB, East Asia): the same Docker Compose stack plus Caddy for automatic HTTPS. Only ports 80 and 443 are open; SSH is closed and management goes through `az vm run-command`. Secrets are generated on the VM at first boot.
+
+```powershell
+.\deploy\azure\deploy.ps1 create    # resource group, VM, DNS name; first boot installs and starts everything
+.\deploy\azure\deploy.ps1 update    # pull the latest commit on the VM and rebuild
+.\deploy\azure\deploy.ps1 stop      # deallocate the VM so it stops using credit (start brings it back)
+```
+
+The hosted copy runs in demo mode: the demo clients are listed on the sign-in page so a visitor can try it, including the Chaos Lab.
+
 ## Documentation
 
 | Document | What it covers |
@@ -137,4 +151,4 @@ start http://localhost:3000 # sign in with a demo client shown on the login scre
 
 ## Cost
 
-$0. Everything is open source and runs locally or on free GitHub-hosted runners. See section 13 of the original guide.
+$0 out of pocket. Everything is open source and runs locally or on free GitHub-hosted runners; the hosted demo draws on Azure for Students credit (about $0.05 an hour while the VM is running). See section 13 of the original guide.
