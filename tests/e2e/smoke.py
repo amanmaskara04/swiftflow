@@ -171,8 +171,16 @@ async def main():
         sem = asyncio.Semaphore(100)
 
         async def one():
+            # A small host can shed a request under this burst (429, or 502/504 from the proxy). Retrying with
+            # the same idempotency key is safe: an order that was created the first time is returned, not doubled.
+            key = str(uuid.uuid4())
             async with sem:
-                return (await place(c, acme, [{"sku": "LOAD-TEST-1", "qty": 1}])).json().get("id")
+                for _ in range(5):
+                    r = await place(c, acme, [{"sku": "LOAD-TEST-1", "qty": 1}], key)
+                    if r.status_code not in (429, 502, 503, 504):
+                        return r.json().get("id")
+                    await asyncio.sleep(float(r.headers.get("retry-after", "1")))
+                return None
 
         t0 = time.time()
         ids = await asyncio.gather(*(one() for _ in range(200)))
