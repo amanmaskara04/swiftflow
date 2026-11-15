@@ -1,0 +1,8 @@
+#cloud-config
+# First boot of the Azure VM: fetch the repository and run the bootstrap script.
+# __FQDN__ is replaced by deploy.ps1 before the VM is created.
+package_update: true
+packages: [git, curl, ca-certificates]
+runcmd:
+  - git clone https://github.com/amanmaskara04/swiftflow.git /opt/swiftflow
+  - bash /opt/swiftflow/deploy/azure/bootstrap.sh __FQDN__ > /var/log/swiftflow-bootstrap.log 2>&1

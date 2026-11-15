@@ -1,0 +1,23 @@
+# Azure VM overlay: adds Caddy in front of the console for automatic HTTPS.
+# Used together with the base file:
+#   docker compose -f deploy/compose/docker-compose.yml -f deploy/azure/docker-compose.azure.yml --env-file deploy/compose/.env up -d --build
+# Every other port stays bound to 127.0.0.1 on the VM; only 80 and 443 face the internet.
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in deploy/compose/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../azure/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web: { condition: service_healthy }
+
+volumes:
+  caddy_data:
+  caddy_config:

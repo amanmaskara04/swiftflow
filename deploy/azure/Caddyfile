@@ -1,0 +1,8 @@
+# TLS certificate is issued and renewed automatically for the VM's DNS name.
+{$SITE_ADDRESS} {
+	encode gzip
+	reverse_proxy web:3000 {
+		# Server-sent events must not be buffered.
+		flush_interval -1
+	}
+}
