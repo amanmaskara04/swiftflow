@@ -262,6 +262,7 @@ export function Orders() {
   }, [q]);
   const orders = useOrders({ q: debounced, status });
   const items = orders.data?.pages.flatMap((p) => p.items) ?? [];
+  const active = status[0];
   const now = Date.now();
 
   return (
@@ -271,19 +272,31 @@ export function Orders() {
           <Plus /> Place order
         </button>
       </Head>
-      <div className="filters">
+      <div className="toolbar">
         <div className="search">
           <Search />
           <input className="input" placeholder="Search order ID or customer ref" aria-label="Search orders" value={q} onChange={(e) => setQ(e.target.value)} maxLength={100} />
+          {q && (
+            <button className="clear" aria-label="Clear search" onClick={() => setQ("")}>
+              <X size={14} />
+            </button>
+          )}
         </div>
-        <button className="chip" aria-pressed={status.length === 0} onClick={() => setStatus([])}>
-          All
-        </button>
-        {ORDER_STATUSES.map((s) => (
-          <button key={s} className="chip" aria-pressed={status.includes(s)} onClick={() => setStatus((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]))}>
-            {s.charAt(0) + s.slice(1).toLowerCase()}
+        {/* One status at a time: choosing another replaces the current one, choosing it again returns to All. */}
+        <div className="pills" role="group" aria-label="Filter by status">
+          <button aria-pressed={!active} onClick={() => setStatus([])}>
+            All
           </button>
-        ))}
+          {ORDER_STATUSES.map((s) => (
+            <button key={s} aria-pressed={active === s} onClick={() => setStatus(active === s ? [] : [s])}>
+              <i className={`dot ${s}`} />
+              {s.charAt(0) + s.slice(1).toLowerCase()}
+            </button>
+          ))}
+        </div>
+        <span className="count mono" aria-live="polite">
+          {orders.isFetching && !orders.isFetchingNextPage ? "updating…" : `${items.length}${orders.hasNextPage ? "+" : ""} ${items.length === 1 ? "order" : "orders"}`}
+        </span>
       </div>
       <div className="card">
         {orders.isLoading ? (
@@ -293,6 +306,11 @@ export function Orders() {
         ) : items.length === 0 ? (
           <Empty title={debounced || status.length ? "No orders match these filters" : "No orders yet"}>
             {debounced || status.length ? "Clear the search or pick a different status." : "Place the first one to watch it move along the line."}
+            {(debounced || status.length > 0) && (
+              <button className="btn sm" onClick={() => { setQ(""); setStatus([]); }}>
+                Clear filters
+              </button>
+            )}
           </Empty>
         ) : (
           <>

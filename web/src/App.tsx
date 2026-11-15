@@ -1,12 +1,12 @@
 // Shell: sign-in gate, dark sidebar, top bar with the health strip, routes.
 import { useQueryClient } from "@tanstack/react-query";
-import { Activity, AlertTriangle, Boxes, List, LogOut, Moon, Network, Sun, Webhook } from "lucide-react";
+import { Activity, AlertTriangle, Boxes, List, LogOut, Network, Webhook } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { LiveProvider, useLive } from "./api/live";
 import { useHealth, useSimConfig } from "./api/resources";
 import { getSession, minutesLeft, signOut, subscribe, type Session } from "./api/session";
-import { applyTheme, effectiveTheme, type Theme } from "./lib/theme";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { ChaosLab } from "./screens/ChaosLab";
 import { Orders } from "./screens/Orders";
 import { Overview } from "./screens/Overview";
@@ -84,13 +84,14 @@ function FaultBar() {
 }
 
 function Shell({ session }: { session: Session }) {
-  const [theme, setTheme] = useState<Theme>(effectiveTheme());
   const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30_000);
     return () => clearInterval(t);
   }, []);
   const admin = session.scopes.includes("admin");
+  // Re-run the entry animation when the section changes, not when a drawer opens within it.
+  const section = useLocation().pathname.split("/")[1] ?? "";
   return (
     <div className="app">
       <a className="skip" href="#main">
@@ -143,21 +144,10 @@ function Shell({ session }: { session: Session }) {
           <span className="tenant">{session.tenantName || "Tenant"}</span>
           <LiveDot />
           <HealthStrip />
-          <button
-            className="iconbtn"
-            onClick={() => {
-              const next = theme === "dark" ? "light" : "dark";
-              applyTheme(next);
-              setTheme(next);
-            }}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-          >
-            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-            {theme === "dark" ? "Light" : "Dark"}
-          </button>
+          <ThemeToggle />
         </div>
         {admin && <FaultBar />}
-        <main id="main">
+        <main id="main" key={section} className="enter">
           <Routes>
             <Route path="/" element={<Overview />} />
             <Route path="/orders" element={<Orders />} />

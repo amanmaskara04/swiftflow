@@ -249,12 +249,15 @@ function Deliveries() {
 
   return (
     <>
-      <div className="filters">
-        {[["", "All"], ["PENDING", "Pending"], ["DELIVERED", "Delivered"], ["FAILED", "Failed"]].map(([v, l]) => (
-          <button key={v} className="chip" aria-pressed={status === v} onClick={() => setStatus(v!)}>
-            {l}
-          </button>
-        ))}
+      <div className="toolbar">
+        <div className="pills" role="group" aria-label="Filter by delivery status">
+          {[["", "All"], ["PENDING", "Pending"], ["DELIVERED", "Delivered"], ["FAILED", "Failed"]].map(([v, l]) => (
+            <button key={v} aria-pressed={status === v} onClick={() => setStatus(v!)}>
+              {v && <i className={`dot ${v}`} />}
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="card">
         {d.isLoading ? (

@@ -1,4 +1,6 @@
 // Theme: explicit light/dark stored per browser; otherwise follow the system.
+import { useSyncExternalStore } from "react";
+
 export type Theme = "light" | "dark";
 const KEY = "swiftflow.theme";
 
@@ -27,6 +29,24 @@ export function applyTheme(t: Theme | null): void {
   } catch {
     /* storage unavailable */
   }
+  listeners.forEach((fn) => fn());
+}
+
+const listeners = new Set<() => void>();
+function subscribeTheme(fn: () => void): () => void {
+  listeners.add(fn);
+  const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+  mq?.addEventListener("change", fn);
+  return () => {
+    listeners.delete(fn);
+    mq?.removeEventListener("change", fn);
+  };
+}
+
+/** Current theme and a function that flips it; every component using it stays in step. */
+export function useTheme(): [Theme, () => void] {
+  const theme = useSyncExternalStore(subscribeTheme, effectiveTheme);
+  return [theme, () => applyTheme(theme === "dark" ? "light" : "dark")];
 }
 
 export function initTheme(): void {
