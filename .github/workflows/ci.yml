@@ -1,5 +1,6 @@
-# SwiftFlow CI: lint and unit tests, console build, then the full stack in Docker with
-# the integration, security and end-to-end suites and the oversell load test.
+# SwiftFlow CI/CD: lint and unit tests, console build, then the full stack in Docker with
+# the integration, security and end-to-end suites and the oversell load test. A push to main
+# that passes all of it is deployed to the Azure demo VM and smoke-tested there.
 # Actions are pinned to commit SHAs; the comment beside each is the release it came from.
 name: ci
 
@@ -19,6 +20,9 @@ concurrency:
 env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "22"
+  DEMO_URL: https://swiftflow-amanmaskara04.eastasia.cloudapp.azure.com
+  AZURE_RESOURCE_GROUP: swiftflow-rg
+  AZURE_VM: swiftflow-vm
 
 jobs:
   python:
@@ -133,3 +137,77 @@ jobs:
       - name: Stop the stack
         if: always()
         run: $COMPOSE down -v
+
+  deploy:
+    # Continuous deployment. Signs in to Azure with a short-lived OIDC token (no stored password),
+    # updates the VM through `az vm run-command` (SSH stays closed) and runs the end-to-end smoke
+    # test against the public URL. One-time setup: .\deploy\azure\deploy.ps1 cd-setup
+    # Skips, without failing, when the setup has not been done or the VM is stopped to save credit.
+    name: Deploy to the Azure demo
+    needs: [stack]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: demo
+      url: ${{ env.DEMO_URL }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - name: Check the deployment is configured
+        id: cfg
+        run: |
+          if [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_TENANT_ID" ] && [ -n "$AZURE_SUBSCRIPTION_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Deployment skipped: the Azure secrets are not set. Run deploy/azure/deploy.ps1 cd-setup once."
+          fi
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Check the VM is running
+        id: vm
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          state=$(az vm get-instance-view -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" --query "instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus | [0]" -o tsv)
+          echo "VM state: $state"
+          if [ "$state" = "VM running" ]; then
+            echo "running=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Deployment skipped: the VM is not running ($state). deploy.ps1 start brings it up on the latest commit."
+          fi
+      - name: Update the VM to this commit
+        if: steps.vm.outputs.running == 'true'
+        run: |
+          host="${DEMO_URL#https://}"
+          out=$(az vm run-command invoke -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" --command-id RunShellScript \
+            --scripts "cd /opt/swiftflow && git fetch -q origin && git merge -q --ff-only $GITHUB_SHA && bash deploy/azure/bootstrap.sh $host 2>&1 | tail -n 12 && echo DEPLOYED_\$(git rev-parse HEAD)" \
+            --query "value[0].message" -o tsv)
+          echo "$out"
+          # run-command reports success even when the script fails, so look for the marker it prints last.
+          echo "$out" | grep -q "DEPLOYED_$GITHUB_SHA"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.vm.outputs.running == 'true'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: steps.vm.outputs.running == 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.lock.txt
+      - name: Smoke-test the live site
+        if: steps.vm.outputs.running == 'true'
+        env:
+          GATEWAY_URL: ${{ env.DEMO_URL }}
+        run: |
+          pip install -q -r requirements-dev.lock.txt
+          python tests/e2e/smoke.py

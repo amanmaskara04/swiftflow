@@ -3,7 +3,7 @@
 **A multi-tenant order fulfillment and inventory platform that never oversells.**
 Six independently deployable services, each on its own port, joined by Kafka events and a single API gateway, driven from one web console.
 
-> Status: **built, running and tested.** Six services, the web console, and unit, integration, security, load and chaos tests. A GitHub Actions workflow ([ci.yml](.github/workflows/ci.yml)) runs lint, unit tests, the console build and the full stack with its integration, security and end-to-end suites; it has not yet run on GitHub. Kubernetes manifests are the remaining optional phase ([implementation plan](docs/implementation-plan.md)).
+> Status: **built, running and tested.** Six services, the web console, and unit, integration, security, load and chaos tests. A GitHub Actions workflow ([ci.yml](.github/workflows/ci.yml)) runs on every push: lint, unit tests, the console build, a vulnerability scan and the full stack with its integration, security, end-to-end and load tests, then deploys `main` to the hosted demo. Kubernetes manifests are the remaining optional phase ([implementation plan](docs/implementation-plan.md)).
 
 ![Overview: the line board and the oversold counter](docs/screenshots/overview.png)
 
@@ -19,13 +19,15 @@ Run on a single laptop with everything in Docker (see [docs/results](docs/result
 | Test | Result |
 |------|--------|
 | **Oversell load test** — 500 concurrent one-unit orders against 100 units | **100 confirmed, 400 rejected, 0 oversold, 100 payments, 0 double charges**; all settled in about 11 s |
-| **Chaos run** — workers killed 6 times and the Kafka broker restarted while 300 orders were in flight, 10 % of payments declined | Every order reached a final state; **all 12 invariants hold** (`chaos/check_invariants.py`) |
+| **Chaos run** — workers killed 6 times and the Kafka broker restarted while 300 orders were in flight, 10 % of payments declined | Every order reached a final state; **all 11 invariant checks pass** (`chaos/check_invariants.py`) |
 | **Security suite** — 81 attacks against the live stack (forged tokens, cross-tenant access, injection, SSRF, gateway abuse) | All refused |
 | **Unit and contract tests** | 165 passing |
-| **Integration tests** — real Postgres and Kafka (role isolation, row-level security, redelivery, poison messages) | 11 passing |
+| **Integration tests** — real Postgres and Kafka (role isolation, row-level security, redelivery, poison messages) | 12 passing |
 | **End-to-end smoke** — 21 checks through the gateway | 21 passing |
 
 Throughput figures from this machine are not quoted: the load generator, not the platform, was the limit (a static file from nginx measured the same requests per second).
+
+The same tests were repeated against the hosted demo over the internet (2026-11-15): the end-to-end smoke passed 21/21, the oversell test passed with 100 confirmed and 0 oversold, and all invariants held afterwards. That VM has 2 vCPUs for the whole stack, and it is the limit there: about 30 orders accepted per second and about 80 authenticated reads per second, the same whether measured on the VM or across the internet. A 2,000-order run kept every stock and payment guarantee (500 confirmed, 0 oversold, 0 double charges) while 9 requests timed out with 502/504.
 
 ---
 
@@ -116,8 +118,12 @@ The demo runs on one Azure VM (Ubuntu 24.04, 2 vCPU, 4 GB, East Asia): the same 
 ```powershell
 .\deploy\azure\deploy.ps1 create    # resource group, VM, DNS name; first boot installs and starts everything
 .\deploy\azure\deploy.ps1 update    # pull the latest commit on the VM and rebuild
-.\deploy\azure\deploy.ps1 stop      # deallocate the VM so it stops using credit (start brings it back)
+.\deploy\azure\deploy.ps1 stop      # deallocate the VM so it stops using credit
+.\deploy\azure\deploy.ps1 start     # start it again and bring it up to the latest commit
+.\deploy\azure\deploy.ps1 cd-setup  # one-time: allow the GitHub workflow to deploy to the VM
 ```
+
+**Continuous deployment.** After `cd-setup`, every push to `main` that passes CI is deployed by the workflow's last job: it signs in to Azure with a short-lived OIDC token (no password or key is stored in GitHub; the identity can manage this one VM only), updates the VM to the pushed commit through `az vm run-command`, and runs the end-to-end smoke test against the public URL. If the VM is stopped, the job skips without failing and `start` catches up later.
 
 The hosted copy runs in demo mode: the demo clients are listed on the sign-in page so a visitor can try it, including the Chaos Lab.
 
@@ -145,7 +151,7 @@ The hosted copy runs in demo mode: the demo clients are listed on the sign-in pa
 **Backend:** Python 3.12, FastAPI, Pydantic v2, asyncpg, aiokafka, redis-py, httpx, tenacity, PyJWT (Ed25519), argon2-cffi, structlog, prometheus-client, OpenTelemetry, jsonschema
 **Frontend:** React 18, TypeScript, Vite, TanStack Query, React Router, Tailwind CSS, Recharts
 **Data and messaging:** PostgreSQL 17, Apache Kafka 4.1 (KRaft), Redis 7
-**Platform:** Docker Compose (Kubernetes manifests and GitHub Actions are the planned next phase)
+**Platform:** Docker Compose, GitHub Actions (CI and deployment), one Azure VM behind Caddy for the hosted demo (Kubernetes manifests are the optional next phase)
 **Observability:** Prometheus, Grafana, Jaeger (OTLP)
 **Testing:** pytest, pytest-asyncio, asyncio load generator, chaos script, invariant checker, headless-browser screenshots
 

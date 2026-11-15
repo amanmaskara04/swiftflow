@@ -33,8 +33,8 @@ Docker Desktop must be running (`docker info` succeeds). Give it at least 6 GB o
 | `.\swiftflow.ps1 infra` | Start only Postgres, Redis and Kafka (mode B) |
 | `.\swiftflow.ps1 dev` | Start every service on the host in its own terminal window (mode B) |
 | `.\swiftflow.ps1 seed` | Create demo tenants, clients, warehouses, products and stock (safe to re-run) |
-| `.\swiftflow.ps1 test` | Unit tests (no infra needed) |
-| `.\swiftflow.ps1 test-int` | Integration tests against the running infra |
+| `.\swiftflow.ps1 test` | Lint, unit and contract tests (no infra needed) |
+| `.\swiftflow.ps1 test-int` | Integration, security and end-to-end tests against the running, seeded stack |
 | `.\swiftflow.ps1 load` | Oversell proof: 500 concurrent orders against 100 units |
 | `.\swiftflow.ps1 chaos` | Kill worker containers mid-saga, then run the invariant checker |
 | `.\swiftflow.ps1 check` | Invariant checker only |

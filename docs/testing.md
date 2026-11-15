@@ -6,43 +6,55 @@ The tests exist to prove the five claims in the [README](../README.md). Each cla
 
 | Layer | Tool | Needs | Location | Covers |
 |-------|------|-------|----------|--------|
-| Unit | pytest | nothing | `services/*/tests/unit`, `libs/common/tests` | Order state machine (every allowed and forbidden transition), circuit breaker, idempotency hashing, scope checks, webhook signing and verification, SSRF guard, token-bucket maths, warehouse choice |
+| Unit | pytest | nothing | `services/*/tests`, `libs/common/tests` | Order state machine (every allowed and forbidden transition), circuit breaker, idempotency hashing, scope checks, webhook signing and verification, SSRF guard, token-bucket maths, warehouse choice, gateway route table |
 | Contract | pytest + jsonschema | nothing | `libs/contracts/tests` | Every example event matches its schema; every event a producer builds in tests matches too |
-| Integration | pytest + pytest-asyncio | infra running (`swiftflow.ps1 infra`) | `tests/integration` | Real Postgres, Redis and Kafka: the scenarios below |
-| End to end | pytest + httpx | full stack | `tests/e2e` | The whole saga over HTTP through the gateway |
+| Integration | pytest + pytest-asyncio | full stack + seed | `tests/integration` | Real Postgres and Kafka: the scenarios below |
+| Security | pytest + httpx | full stack + seed | `tests/security` | Attacks through the gateway that must all be refused |
+| End to end | a plain script, `tests/e2e/smoke.py` (asyncio + httpx) | full stack + seed | `tests/e2e` | The whole saga over HTTP through the gateway: 21 checks |
 | Load | `loadtest/oversell.py` (asyncio + httpx), `loadtest/bench.py` (throughput probe) | full stack | `loadtest/` | No overselling under concurrency; latency |
 | Chaos | `chaos/kill_mid_saga.ps1` + invariant checker | full stack in Docker | `chaos/` | Process and broker failures mid-saga |
 
-Coverage target: 80 % lines on `libs/common` and each service's domain modules.
+Counts at the last run: 165 unit and contract tests, 12 integration, 81 security, 21 end-to-end checks. Coverage is not measured.
+
+`.\swiftflow.ps1 test` runs lint, unit and contract tests. `.\swiftflow.ps1 test-int` runs the integration and security suites and then the end-to-end script.
+
+The integration, security and end-to-end tests read the gateway address from `GATEWAY_URL` (default `http://localhost:8080`). The end-to-end script and the load test (`--gateway`) also run against the hosted demo. The integration tests that open database or Kafka connections need those ports, so they only run where the stack is local. Fifteen security tests assume a direct plain-HTTP gateway and fail against the public HTTPS address, where Caddy and nginx sit in front: they send raw paths over port 80 (redirected to HTTPS), a foreign `Host` header (refused by Caddy before it reaches the gateway) and a `localhost` CORS origin (the demo allows only its own origin).
 
 ## Integration scenarios
 
-| Test | Setup | Pass condition |
-|------|-------|----------------|
-| `test_concurrent_reservation` | 1 SKU, 50 in stock; 200 concurrent 1-unit reservations | Exactly 50 `ACTIVE` reservations; `reserved = 50`; 150 failures |
-| `test_redelivered_event` | Deliver the same `OrderPlaced` twice | One reservation; second counted as `duplicate` |
-| `test_relay_crash` | 1,000 outbox rows; cancel the relay task halfway; restart | All 1,000 `event_id`s reach Kafka (duplicates allowed, losses not) |
-| `test_poison_message` | Publish a malformed message, then a valid one | Malformed lands on `.dlq` with error headers after 3 attempts; valid one processed |
-| `test_idempotency_key` | Same key + same body twice; then same key + different body | One order, same response replayed; then `422` |
-| `test_tenant_isolation` | Rows for tenants A and B | Tenant A session reads 0 of B's rows; a session with no tenant set raises |
-| `test_adjust_below_reserved` | 10 on hand, 8 reserved; set to 5 | `409`; nothing changes |
-| `test_multi_item_all_or_nothing` | Item 1 available, item 2 not | No reservation for either item |
+All in `tests/integration/test_integration.py`.
 
-## End-to-end scenarios
+| Test | What it does | Pass condition |
+|------|--------------|----------------|
+| `test_a_service_role_cannot_read_another_services_schema` | Connects as each service's database role and reads the other schemas | Permission denied every time; the role is not a superuser and cannot bypass RLS |
+| `test_row_level_security_fails_closed_and_isolates_tenants` | Queries each tenant table with no tenant set, then as each tenant | No tenant set: the query raises; a tenant session sees only its own rows |
+| `test_check_constraint_refuses_an_oversold_row` | Tries to write `reserved > on_hand` directly | The `CHECK` constraint refuses it |
+| `test_secrets_are_stored_hashed` | Reads the stored client secrets | Argon2 hashes only |
+| `test_redelivered_event_reserves_once` | Delivers the same `OrderPlaced` twice | One reservation; the second delivery is dropped by the inbox |
+| `test_poison_message_goes_to_the_dlq_and_the_partition_keeps_moving` | Publishes a malformed message, then a valid one | The malformed one lands on `.dlq`; the valid one is processed |
+| `test_outbox_rows_are_all_published` | Reads the order and inventory outboxes after traffic | No row is left unpublished |
+| `test_repeated_query_parameters_all_reach_the_service` | Lists orders with `status=A&status=B` in both orders | Both statuses come back (the gateway once forwarded only the last value) |
+
+Concurrent reservation is proven by the end-to-end script (200 orders against 50 units) and the load test rather than by an integration test. Idempotency-key replay is covered by the end-to-end script and the security suite; adjusting stock below the reserved amount is covered by the security suite.
+
+## End-to-end checks
 
 | Scenario | Pass condition |
 |----------|----------------|
-| Happy path | `CONFIRMED` within 10 s; `SHIPPED` after ship; stock `on_hand` reduced |
-| Payment declined (`failure_rate = 1`) | `CANCELLED` with `payment_declined`; stock available again |
+| Happy path | `202 PENDING`, then `CONFIRMED`; total computed from inventory prices; `SHIPPED` after ship and `on_hand` reduced |
+| Idempotency | Same key and body returns the same order; same key with a different body returns `422` |
+| Payment declined | `CANCELLED` with `payment_declined`; stock available again |
 | Out of stock | `REJECTED` with `insufficient_stock` |
-| Webhook | Simulator receives `OrderConfirmed` with a valid signature |
-| Provider outage | Orders wait in `RESERVED`; circuit opens; after recovery they reach `CONFIRMED` |
-| Auth | No token → 401; partner calling ship → 403; burst over limit → 429 |
-| Cross-tenant | Globex token cannot `GET` an Acme order (404, not 403, so existence is not leaked) |
+| Cancel after confirmation | `CANCELLED` and the payment `REFUNDED` |
+| Webhook | The simulator receives `OrderConfirmed` with a valid signature |
+| Auth | No token → 401; partner calling ship or fault injection → 403 |
+| Cross-tenant | A Globex token cannot read or cancel an Acme order (404, not 403, so existence is not leaked) |
+| Concurrency | 200 concurrent orders against 50 units: exactly 50 confirmed, reserved grows by 50, no double charges |
+| Health | Every node reports up |
 
 ## Security tests
 
-Kept in `tests/security/` and run with the e2e suite. Each one is an attack that must fail.
+Kept in `tests/security/` and run with the integration suite. Each one is an attack that must fail.
 
 | Area | Test | Must happen |
 |------|------|-------------|
@@ -64,29 +76,55 @@ Kept in `tests/security/` and run with the e2e suite. Each one is an attack that
 ## Load test: the oversell proof
 
 ```powershell
-.\swiftflow.ps1 load            # defaults: SKU LOAD-TEST-1, 100 units, 500 orders, concurrency 500
+.\swiftflow.ps1 load            # defaults: SKU LOAD-TEST-1, 100 units, 500 orders, concurrency 200
+.venv\Scripts\python.exe loadtest\oversell.py --gateway https://<host> --units 500 --orders 2000
 ```
-1. Sets the test SKU to 100 units in one warehouse and the simulator to 0 % declines.
-2. Fires 500 single-unit orders at once, each with a unique idempotency key.
+1. Sets the test SKU to 100 free units in one warehouse and the simulator to 0 % declines.
+2. Fires 500 single-unit orders, up to 200 at a time, each with a unique idempotency key.
 3. Polls until every order is final.
 
-**Pass:** exactly 100 `CONFIRMED`, 400 `REJECTED`, `reserved = 100`, oversold units = 0, simulator `double_charges = 0`. Prints throughput, accept-latency p50/p95/p99 and time to settle, and writes `docs/results/oversell-<timestamp>.md`.
+**Pass:** every order accepted and settled, exactly 100 `CONFIRMED`, 400 `REJECTED`, stock reserved by the run = 100, oversold units = 0, one payment per confirmed order, simulator `double_charges = 0`. Prints throughput, accept-latency p50/p95/p99 and time to settle, and writes `docs/results/oversell-<timestamp>.md`.
+
+`loadtest/bench.py` is a quick throughput probe for five endpoints (`--gateway`, `--n`, `--c`).
+
+### Results on the hosted demo (2026-11-15)
+
+One Azure VM with 2 vCPUs and 4 GB runs the whole stack, tested from a laptop over the internet.
+
+| Run | Result |
+|-----|--------|
+| 500 orders against 100 units | Passed: 100 confirmed, 400 rejected, 0 oversold; accepted at 29 orders/s, settled in 27 s ([report](results/oversell-20261115-121809.md)) |
+| 2,000 orders against 500 units | 500 confirmed, 0 oversold, 0 double charges; 9 requests timed out with 502/504, so the run is marked failed on "every order was accepted" ([report](results/oversell-20261115-122001.md)) |
+| Throughput probe, 50 concurrent | About 30 orders/s and about 80 authenticated reads/s, the same when run on the VM itself — the VM's CPU is the limit, not the network |
+| Invariant checker afterwards | All checks pass across 15,584 orders |
+
+The same laptop runs the local stack at about 50 orders/s.
 
 ## Chaos test
 
-`chaos/kill_mid_saga.ps1` starts the load test, then every 5 s restarts a random container among `order-worker`, `inventory-worker`, `notification-worker`, and once restarts `kafka`. When traffic stops and lag drains, it runs the invariant checker.
+`chaos/kill_mid_saga.ps1` sets the simulator to 10 % declines and 300 ms latency, starts the load test (400 orders against 150 units by default), then six times kills and restarts a random container among `order-worker`, `inventory-worker` and `notification-worker`, and restarts `kafka` once halfway through. When the load run ends it waits 20 s and runs the invariant checker.
 
 ## Invariant checker — `chaos/check_invariants.py`
 
-Connects as the superuser (bypassing RLS on purpose) and exits non-zero on any failure:
+Connects as the superuser (bypassing RLS on purpose) and exits non-zero on any failure. `--grace` (default 120 s) is how old a row must be before it counts as stuck.
 
 1. No stock row has `reserved > on_hand` or a negative value.
 2. For every stock row, `reserved` equals the sum of its `ACTIVE` reservations.
-3. Every order older than 2 minutes is `CONFIRMED`, `SHIPPED`, `REJECTED` or `CANCELLED`.
-4. `CANCELLED` and `REJECTED` orders hold no `ACTIVE` reservations; `CONFIRMED` orders hold one per item.
-5. The simulator recorded at most one successful charge per order, and every `CANCELLED` order that was charged has exactly one refund (no order is left `REFUND_PENDING` for more than 2 minutes).
-6. No outbox row is unpublished for more than 30 s, and every `.dlq` message is listed in the report.
+3. No order older than the grace period is still `PENDING` or `RESERVED`.
+4. a. `CANCELLED` and `REJECTED` orders hold no `ACTIVE` reservation. b. Every `CONFIRMED` order holds one per line. c. Every `SHIPPED` order's reservations are `COMMITTED`.
+5. a. No `CANCELLED` order still holds money (`CHARGED` or `REFUND_PENDING`). b. `CONFIRMED` and `SHIPPED` orders are charged exactly once. c. The simulator recorded no double charges.
+6. No outbox row is stuck unpublished.
+7. Every tenant table has row-level security forced.
 
-## CI
+It also prints order totals by status.
 
-`.github/workflows/ci.yml`: ruff lint and format check → unit and contract tests → build every image → Trivy scan (fail on fixable `CRITICAL`) → start the Compose stack → seed → e2e tests → oversell load test → invariant checker → publish the results table to the job summary. Every third-party action is pinned to a full commit SHA.
+## CI and deployment
+
+`.github/workflows/ci.yml`, on every push and pull request:
+
+1. **Lint and unit tests:** ruff, then the library, contract and service tests.
+2. **Console:** type-check (`tsc`) and the production build.
+3. **Full stack:** build every image → Trivy scan of the repository (fails on a fixable `CRITICAL` or `HIGH`) and of the order image (fixable `CRITICAL`) → start the Compose stack → seed → integration and security tests → end-to-end script → oversell load test → invariant checker.
+4. **Deploy** (pushes to `main` only, after everything above passes): sign in to Azure with OIDC, update the demo VM to the commit, run the end-to-end script against the public URL. Skipped when the VM is stopped or the one-time `deploy.ps1 cd-setup` has not been run.
+
+Every third-party action is pinned to a full commit SHA.

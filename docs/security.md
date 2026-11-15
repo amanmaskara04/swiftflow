@@ -83,6 +83,8 @@ Tested by the invariant checker after load and chaos runs: zero double charges, 
 | The first design had no refund for a charged order that was later cancelled | Refund flow added to the saga |
 | The live stream took its token in the URL | Moved to the `Authorization` header |
 | Simulator fault controls needed no authentication | Admin token required |
+| The gateway forwarded only the last value of a repeated query parameter, so `?status=A&status=B` filtered on B alone | All values are forwarded; an integration test covers it |
+| After a redeploy gave the gateway container a new address, the console's nginx kept calling the old one and every API call returned `502` | nginx now resolves the gateway through Docker's DNS on each request |
 
 ## Known limits (deliberate, for a local demo)
 
@@ -92,7 +94,7 @@ Tested by the invariant checker after load and chaos runs: zero double charges, 
 - The webhook address check and the request are separate steps, so a DNS answer could change between them. Pinning the connection to the checked address would close that gap.
 - The gateway's own `/metrics` and `/docs` are reachable on port 8080; the console's nginx forwards only `/v1` and `/.well-known`, and a production edge should do the same.
 - The login throttle is per client ID, so someone who knows a client ID can slow that client's sign-ins.
-- No dependency or image vulnerability scan has been run yet (Trivy is planned with CI).
+- On the hosted demo, API responses that pass through the console's nginx carry `X-Content-Type-Options` and `Referrer-Policy` twice, because nginx and the gateway each add them. Harmless, but untidy.
 
 ## Vulnerability scan
 

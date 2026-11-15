@@ -95,7 +95,7 @@ Scale (rem): 0.75 · 0.8125 · 0.875 (body) · 1 · 1.25 · 1.75 · 2.5 (KPI) ·
 
 - 4 px base grid; spacing steps 4 · 8 · 12 · 16 · 24 · 32 · 48.
 - Radius: 6 px on controls, 10 px on cards. Badges are 4 px, label-like, never pills.
-- Depth from hairlines, not shadows. The only shadow is on drawers and the command palette.
+- Depth from hairlines, not shadows. The only shadow is on drawers.
 - **Hazard stripe:** a 4 px diagonal yellow/ink stripe (`repeating-linear-gradient(135deg, …)`) marks exactly two things: the Chaos Lab header and any banner saying a fault is injected. It must stay rare to stay meaningful.
 
 ### Motion
@@ -126,7 +126,7 @@ Scale (rem): 0.75 · 0.8125 · 0.875 (body) · 1 · 1.25 · 1.75 · 2.5 (KPI) ·
 ```
 
 - **Left rail** (72 px collapsed, 220 px expanded): icon + label, current screen marked with a yellow 3 px bar.
-- **Top bar:** tenant name (switching signs in as that tenant's client), the **health strip** (one light per service, from `/v1/system/health`, polled every 5 s; hover shows port and latency), command palette, theme toggle.
+- **Top bar:** tenant name, the **health strip** (one light per service, from `/v1/system/health`, polled every 5 s; hover shows port and latency) and the light/dark theme toggle. The command palette and tenant switching in the original design were not built (see 1a).
 - **Content:** max width 1440 px, 32 px gutter (16 px on mobile).
 - Below 900 px the rail becomes a bottom tab bar with five items; Chaos Lab moves into the overflow.
 
@@ -151,6 +151,7 @@ Scale (rem): 0.75 · 0.8125 · 0.875 (body) · 1 · 1.25 · 1.75 · 2.5 (KPI) ·
 │  └──────────────┴───────────┴────────────────────────┘    │
 └───────────────────────────────────────────────────────────┘
 ```
+- As built, sign-in is also the landing page: beside the form it explains the project (what it proves, the services, an animated order journey) and carries the same theme toggle as the shell.
 - "Use" fills both fields. The demo table appears only when the API reports `environment = local`.
 - Error: "That client ID and secret don't match. Check both and try again."
 - The token is held in memory and `sessionStorage`; on expiry (15 min) the app silently requests a new one with the stored credentials, or returns to sign-in.
@@ -191,6 +192,7 @@ Scale (rem): 0.75 · 0.8125 · 0.875 (body) · 1 · 1.25 · 1.75 · 2.5 (KPI) ·
  └──────────┴───────────────┴──────────────────┴───────┴────────┴────────┘
                                                         [ Load more ]
 ```
+- The status filter is a row of pills, **one status at a time**: choosing another replaces the current one, choosing it again returns to All. (The API accepts several `status` values; the console sends one.)
 - Row click opens the **order drawer** (right, 520 px): header with ID (copy button), status badge, customer ref; the **full saga rail**; items table (SKU, qty, warehouse code, unit price); the event list from `/v1/events?aggregate_id=` with expandable JSON; actions **Cancel order** (with confirm) and **Mark shipped** (admin only, shown only when `CONFIRMED`).
 - **New order** dialog: SKU picker with live availability next to each SKU, qty stepper, customer ref, and a generated idempotency key shown in mono with a "new key" button — so a demo can show a replayed request returning the same order.
 - The list refetches when an SSE event for a visible order arrives; no polling.
@@ -274,7 +276,7 @@ The oversell test result panel fills live as orders settle:
 | `EventTape` | Virtualised list, max 200 items kept |
 | `Kpi` | Label (Archivo caps 0.75 rem) over figure (Archivo 2.5 rem, tabular) |
 | `Mono` | IBM Plex Mono span with optional copy button |
-| `Drawer`, `Dialog`, `Toast`, `CommandPalette` | Focus-trapped, Escape closes, return focus to trigger |
+| `Drawer`, `Dialog`, `Toast` | Focus-trapped, Escape closes, return focus to trigger |
 | `ProblemAlert` | Renders an RFC 9457 body: title, detail, and request ID in mono for support |
 
 ## 7. Writing rules
@@ -288,7 +290,7 @@ The oversell test result panel fills live as orders settle:
 
 - Contrast: body text ≥ 4.5:1 on `--paper` and `--sheet` in both themes; yellow is used as a fill behind `--signal-ink`, never as text on white.
 - Visible focus: 2 px `--signal` ring with a 2 px `--ink` offset, on every interactive element.
-- Full keyboard use: table rows are buttons, drawers trap focus, `⌘K` / `Ctrl K` opens the palette.
+- Full keyboard use: table rows are buttons, drawers trap focus.
 - Charts have a table alternative ("View as table").
 - Works from 360 px wide; tables collapse to stacked cards below 700 px.
 
