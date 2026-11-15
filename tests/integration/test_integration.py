@@ -247,17 +247,25 @@ async def test_outbox_rows_are_all_published(http):
 
 def test_repeated_query_parameters_all_reach_the_service(http, auth):
     # The gateway once forwarded only the last of a repeated key, so a two-status filter returned one status.
+    import time
+
+    h = auth["acme-admin"]
+    for items, want in (([{"sku": "MUG-ENAMEL", "qty": 1}], "CONFIRMED"), ([{"sku": "TOWEL-QUICK", "qty": 999}], "REJECTED")):
+        r = http.post("/v1/orders", json={"items": items}, headers={**h, "Idempotency-Key": f"test-{uuid.uuid4()}"})
+        assert r.status_code == 202, r.text
+        end = time.time() + 30
+        while (got := http.get(f"/v1/orders/{r.json()['id']}", headers=h).json()["status"]) != want and time.time() < end:
+            time.sleep(0.25)
+        assert got == want
+
     def page(qs):
-        r = http.get("/v1/orders?limit=100&" + qs, headers=auth["acme-admin"])
+        r = http.get("/v1/orders?limit=100&" + qs, headers=h)
         assert r.status_code == 200
         return r.json()["items"]
 
-    singles = {s: page("status=" + s) for s in ("CONFIRMED", "SHIPPED", "CANCELLED", "REJECTED")}
-    a, b = sorted((s for s in singles if singles[s]), key=lambda s: len(singles[s]))[:2] or (None, None)
-    if not b:
-        pytest.skip("needs orders in at least two statuses")
-    merged = sorted(singles[a] + singles[b], key=lambda o: (o["created_at"], o["id"]), reverse=True)[:100]
-    want = [o["id"] for o in merged]
+    a, b = "CONFIRMED", "REJECTED"
+    merged = sorted(page(f"status={a}") + page(f"status={b}"), key=lambda o: (o["created_at"], o["id"]), reverse=True)[:100]
+    want_ids = [o["id"] for o in merged]
     assert {o["status"] for o in merged} == {a, b}
-    assert [o["id"] for o in page(f"status={a}&status={b}")] == want
-    assert [o["id"] for o in page(f"status={b}&status={a}")] == want
+    assert [o["id"] for o in page(f"status={a}&status={b}")] == want_ids
+    assert [o["id"] for o in page(f"status={b}&status={a}")] == want_ids
