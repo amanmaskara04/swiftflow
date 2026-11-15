@@ -46,7 +46,8 @@ Swiftflow/
 - [x] Migrations: warehouses, products, stock_levels, reservations, adjustments, outbox, inbox, RLS
 - [x] Catalogue, adjustment (with `If-Match`), availability (Redis cache) and stock-grid endpoints
 - [x] Reservation, release and commit functions (the SQL in database.md)
-- [x] Tests for concurrent reservation, all-or-nothing multi-item orders and tenant isolation (as built: unit tests in `services/inventory/tests`, the row-level-security integration test, and the 200-against-50 check in the end-to-end script)
+- [x] Tests for concurrent reservation and tenant isolation (as built: the 200-against-50 check in the end-to-end script and the row-level-security integration test)
+- [ ] A test for all-or-nothing multi-item orders — the behaviour is implemented, but no test covers it
 
 **Exit check:** 200 concurrent reservations against 50 units leave exactly 50 reserved.
 

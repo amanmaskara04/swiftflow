@@ -35,7 +35,7 @@ All in `tests/integration/test_integration.py`.
 | `test_outbox_rows_are_all_published` | Reads the order and inventory outboxes after traffic | No row is left unpublished |
 | `test_repeated_query_parameters_all_reach_the_service` | Lists orders with `status=A&status=B` in both orders | Both statuses come back (the gateway once forwarded only the last value) |
 
-Concurrent reservation is proven by the end-to-end script (200 orders against 50 units) and the load test rather than by an integration test. Idempotency-key replay is covered by the end-to-end script and the security suite; adjusting stock below the reserved amount is covered by the security suite.
+Concurrent reservation is proven by the end-to-end script (200 orders against 50 units) and the load test rather than by an integration test. Idempotency-key replay is covered by the end-to-end script and the security suite; adjusting stock below the reserved amount is covered by the security suite. All-or-nothing reservation of a multi-item order has no test yet.
 
 ## End-to-end checks
 
