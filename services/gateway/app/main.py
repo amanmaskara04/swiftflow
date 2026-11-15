@@ -232,7 +232,7 @@ async def proxy(path: str, request: Request) -> Response:
         upstream_req = app.state.http.build_request(
             request.method,
             base + upstream_path,
-            params=request.query_params,
+            params=request.query_params.multi_items(),  # a plain mapping would keep only the last of a repeated key
             headers=headers,
             content=request.stream() if has_body else None,
             timeout=httpx.Timeout(settings.upstream_timeout_seconds, connect=3.0, read=None)

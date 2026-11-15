@@ -243,3 +243,21 @@ async def test_outbox_rows_are_all_published(http):
         assert await c.fetchval("SELECT count(*) FROM orders.outbox_events WHERE published_at IS NOT NULL") > 0
     finally:
         await c.close()
+
+
+def test_repeated_query_parameters_all_reach_the_service(http, auth):
+    # The gateway once forwarded only the last of a repeated key, so a two-status filter returned one status.
+    def page(qs):
+        r = http.get("/v1/orders?limit=100&" + qs, headers=auth["acme-admin"])
+        assert r.status_code == 200
+        return r.json()["items"]
+
+    singles = {s: page("status=" + s) for s in ("CONFIRMED", "SHIPPED", "CANCELLED", "REJECTED")}
+    a, b = sorted((s for s in singles if singles[s]), key=lambda s: len(singles[s]))[:2] or (None, None)
+    if not b:
+        pytest.skip("needs orders in at least two statuses")
+    merged = sorted(singles[a] + singles[b], key=lambda o: (o["created_at"], o["id"]), reverse=True)[:100]
+    want = [o["id"] for o in merged]
+    assert {o["status"] for o in merged} == {a, b}
+    assert [o["id"] for o in page(f"status={a}&status={b}")] == want
+    assert [o["id"] for o in page(f"status={b}&status={a}")] == want
